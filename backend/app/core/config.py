@@ -43,6 +43,17 @@ class Settings(BaseSettings):
     LLM_PROVIDER: str = "openai"
     OPENAI_API_KEY: str = ""
     AI_MODEL: str = "gpt-4o-mini"
+    EMBEDDING_MODEL: str = "text-embedding-3-small"
+    # Dimension of EMBEDDING_MODEL output (text-embedding-3-small = 1536).
+    EMBEDDING_DIM: int = 1536
+
+    # Auth (Phase 7). Tokens are signed with SECRET_KEY.
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 12
+
+    # Rate limiting (Phase 7). Applied to auth + AI endpoints.
+    RATE_LIMIT_AUTH: str = "10/minute"
+    RATE_LIMIT_AI: str = "30/minute"
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod

@@ -13,7 +13,12 @@ import uuid
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from app.ai.prompts import classify_prompt, suggest_reply_prompt, summary_prompt
+from app.ai.guardrails import apply_input_guardrails
+from app.ai.prompts import (
+    classify_prompt,
+    rag_augmented_reply_prompt,
+    summary_prompt,
+)
 from app.core.errors import AppError, NotFoundError
 from app.integrations.llm_client import LLMClient
 from app.models.ai_audit_log import AIAuditLog
@@ -22,10 +27,12 @@ from app.models.user import User
 from app.repositories.ai_repository import AIAuditRepository
 from app.repositories.ticket_repository import TicketRepository
 from app.schemas.ai import (
+    Citation,
     SuggestedReplyResult,
     SummaryResult,
     TicketClassification,
 )
+from app.services.knowledge_service import KnowledgeService
 
 _INPUT_SUMMARY_LEN = 280
 
@@ -143,19 +150,48 @@ class AIService:
         self, ticket_id: uuid.UUID, current_user: User
     ) -> SuggestedReplyResult:
         ticket = self._get_ticket(ticket_id)
-        system, user = suggest_reply_prompt(
-            ticket.subject, ticket.description, self._message_lines(ticket)
+
+        # RAG: retrieve knowledge base context to ground the reply (best-effort).
+        query = f"{ticket.subject}\n{ticket.description}"
+        hits = KnowledgeService(self.db, self.llm).semantic_search(
+            query, current_user, limit=3
+        )
+        contexts = [hit.snippet for hit in hits]
+        citations = [
+            Citation(
+                article_id=hit.article_id,
+                chunk_id=hit.chunk_id,
+                title=hit.title,
+                snippet=hit.snippet,
+            )
+            for hit in hits
+        ]
+
+        # Guardrails: redact PII / flag injection in the ticket content.
+        safe_description, flags = apply_input_guardrails(ticket.description)
+        safe_lines: list[str] = []
+        for line in self._message_lines(ticket):
+            sanitized, line_flags = apply_input_guardrails(line)
+            safe_lines.append(sanitized)
+            flags.extend(line_flags)
+
+        system, user = rag_augmented_reply_prompt(
+            ticket.subject, safe_description, safe_lines, contexts
         )
         text = self._client.complete(system=system, user=user).strip()
         if not text:
             raise AIProcessingError("The AI returned an empty reply.")
-        result = SuggestedReplyResult(reply=text)
+
+        risk_flags = ["human_review_required", *sorted(set(flags))]
+        result = SuggestedReplyResult(
+            reply=text, citations=citations, risk_flags=risk_flags
+        )
         self._record(
             action_type="suggest_reply",
             ticket=ticket,
             current_user=current_user,
             output=result.model_dump(mode="json"),
-            risk_flags=["human_review_required"],
+            risk_flags=risk_flags,
         )
         return result
 

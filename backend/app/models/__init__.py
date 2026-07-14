@@ -2,6 +2,7 @@
 
 from app.db.base import Base
 from app.models.ai_audit_log import AIAuditLog
+from app.models.conversation import Conversation, ConversationMessage
 from app.models.customer import Customer
 from app.models.invoice import Invoice
 from app.models.knowledge_article import KnowledgeArticle
@@ -15,6 +16,8 @@ from app.models.webhook_event import WebhookEvent
 __all__ = [
     "AIAuditLog",
     "Base",
+    "Conversation",
+    "ConversationMessage",
     "Customer",
     "Invoice",
     "KnowledgeArticle",

@@ -1,3 +1,4 @@
+import { getToken, setToken } from '@/lib/authToken';
 import { ApiError, isApiErrorBody } from '@/lib/errors';
 
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000').replace(
@@ -29,16 +30,29 @@ function buildUrl(path: string, query?: Record<string, QueryValue>): string {
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, query, signal } = options;
 
+  const headers: Record<string, string> = {};
+  if (body) headers['Content-Type'] = 'application/json';
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
   let response: Response;
   try {
     response = await fetch(buildUrl(path, query), {
       method,
-      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      headers,
       body: body ? JSON.stringify(body) : undefined,
       signal,
     });
   } catch {
     throw new ApiError(0, 'network_error', 'Unable to reach the server.');
+  }
+
+  // Session expired or revoked: clear the stored token and bounce to login.
+  if (response.status === 401 && token) {
+    setToken(null);
+    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+      window.location.assign('/login');
+    }
   }
 
   if (response.status === 204) {

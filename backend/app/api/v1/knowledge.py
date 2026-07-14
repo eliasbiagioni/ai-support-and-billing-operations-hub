@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import Pagination, get_current_user, get_pagination
 from app.db.session import get_db
+from app.integrations.llm_client import LLMClient, get_optional_llm_client
 from app.models.knowledge_article import KnowledgeArticle
 from app.models.user import User
 from app.schemas.common import Page
@@ -59,8 +60,9 @@ def create_article(
     payload: ArticleCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    llm: LLMClient | None = Depends(get_optional_llm_client),
 ) -> ArticleRead:
-    article = KnowledgeService(db).create_article(payload, current_user)
+    article = KnowledgeService(db, llm).create_article(payload, current_user)
     return _to_read(article)
 
 
@@ -89,8 +91,9 @@ def update_article(
     payload: ArticleUpdate,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
+    llm: LLMClient | None = Depends(get_optional_llm_client),
 ) -> ArticleRead:
-    article = KnowledgeService(db).update_article(article_id, payload)
+    article = KnowledgeService(db, llm).update_article(article_id, payload)
     return _to_read(article)
 
 
@@ -99,6 +102,7 @@ def chunk_article(
     article_id: uuid.UUID,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
+    llm: LLMClient | None = Depends(get_optional_llm_client),
 ) -> ArticleRead:
-    article = KnowledgeService(db).chunk_article(article_id)
+    article = KnowledgeService(db, llm).chunk_article(article_id)
     return _to_read(article)

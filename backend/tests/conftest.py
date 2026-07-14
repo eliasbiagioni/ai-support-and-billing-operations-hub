@@ -7,10 +7,11 @@ live Postgres are required in CI.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 
 import pytest
 from app.api.deps import get_current_user
+from app.core.security import hash_password
 from app.db.session import get_db
 from app.main import app
 from app.models import Base, User
@@ -66,6 +67,42 @@ def client(db_session: Session, seeded_user: User) -> Iterator[TestClient]:
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture()
+def api_client(db_session: Session) -> Iterator[TestClient]:
+    """Client with real auth enabled (only the DB session is overridden)."""
+
+    def override_get_db() -> Iterator[Session]:
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    with TestClient(app) as test_client:
+        yield test_client
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture()
+def make_user(db_session: Session) -> Callable[..., User]:
+    def _make(
+        email: str,
+        password: str = "password123",
+        role: UserRole = UserRole.admin,
+        active: bool = True,
+    ) -> User:
+        user = User(
+            name=email.split("@")[0],
+            email=email,
+            role=role,
+            active=active,
+            password_hash=hash_password(password),
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+        return user
+
+    return _make
 
 
 @pytest.fixture()

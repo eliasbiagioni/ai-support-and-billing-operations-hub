@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -33,8 +33,14 @@ services:
       LLM_PROVIDER: ${LLM_PROVIDER:-openai}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       AI_MODEL: ${AI_MODEL:-gpt-4o-mini}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
     ports:
       - "8000:8000"
+    volumes:
+      # Live-reload: mount source so code edits apply without rebuilding the image.
+      - ./backend:/app
+      # Keep image-installed dependencies; do not let the host overlay them.
+      - /app/.venv
 
   frontend:
     build: ./frontend

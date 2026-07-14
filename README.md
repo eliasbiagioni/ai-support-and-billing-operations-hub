@@ -2,7 +2,7 @@
 
 A portfolio-grade SaaS operations platform that helps support teams resolve customer and billing issues faster. Built with **FastAPI + React/TypeScript + PostgreSQL**, following the project PRD.
 
-> **Status:** Phases 0-4 are complete — Foundation, Core Support MVP, Knowledge Base, AI Assist v1, and Stripe Billing. Later phases (AI Billing Copilot, RAG + Guardrails, Production Polish) are scaffolded for but not yet implemented.
+> **Status:** Phases 0-7 are complete — Foundation, Core Support MVP, Knowledge Base, AI Assist v1, Stripe Billing, AI Billing Copilot (tool-calling), RAG + Guardrails (pgvector), and Production Polish (real JWT auth + RBAC, rate limiting, security headers).
 
 ## What's implemented
 
@@ -20,8 +20,11 @@ A portfolio-grade SaaS operations platform that helps support teams resolve cust
 - **Dashboard:** `GET /api/dashboard/summary`
 - **Knowledge base:** `GET/POST /api/knowledge/articles`, `GET/PATCH /api/knowledge/articles/{id}`, `POST /api/knowledge/articles/{id}/chunk`, `GET /api/knowledge/search?q=`
 - **AI Assist:** `POST /api/ai/tickets/{id}/classify|summarize|suggest-reply`, `GET /api/ai/audit-logs`
+- **AI Copilot (RAG + tools):** `POST /api/ai/copilot`
 - **Billing:** `GET /api/customers/{id}/billing`, `POST /api/customers/{id}/checkout-session`, `GET /api/invoices`, `GET /api/payments`
 - **Webhooks:** `POST /api/webhooks/stripe`, `GET /api/webhooks/events`
+- **Auth:** `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/change-password`
+- **Users (admin only):** `GET/POST /api/users`, `PATCH /api/users/{id}`, `POST /api/users/{id}/reset-password`
 
 ## Architecture
 
@@ -75,7 +78,19 @@ docker compose up --build
 - API docs (Swagger): http://localhost:8000/docs
 - Health: http://localhost:8000/api/health
 
-The backend container automatically runs migrations, seeds demo data, and starts the API.
+The backend container automatically runs migrations, seeds demo data, and starts the API. Source is mounted as a volume, so backend and frontend edits hot-reload without rebuilding the containers.
+
+### Demo login
+
+Seeded accounts share the password `password123`:
+
+| Email                            | Role          |
+| -------------------------------- | ------------- |
+| `ava.admin@supportledger.io`     | admin         |
+| `sam.support@supportledger.io`   | support agent |
+| `bianca.billing@supportledger.io`| billing agent |
+
+Only the **admin** can access the Users management screen and create/manage accounts — there is no public sign-up.
 
 ## Running locally (without Docker)
 
@@ -110,6 +125,7 @@ VITE_API_BASE_URL="http://localhost:8000" npm run dev
 | Backend  | `ruff check .`                 | Lint                             |
 | Backend  | `alembic upgrade head`         | Apply migrations                 |
 | Backend  | `python -m app.commands.seed`  | Seed demo data                   |
+| Backend  | `python -m app.commands.backfill_embeddings` | Compute missing RAG embeddings |
 | Frontend | `npm run dev`                  | Dev server                       |
 | Frontend | `npm run typecheck`            | TypeScript check                 |
 | Frontend | `npm run lint`                 | ESLint                           |
@@ -119,19 +135,19 @@ VITE_API_BASE_URL="http://localhost:8000" npm run dev
 
 See [.env.example](.env.example). AI Assist requires `OPENAI_API_KEY` (and optionally `AI_MODEL`); Billing requires `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `STRIPE_PRICE_ID_PRO`. These integrations are real-only: without the keys, the AI and billing endpoints return a clear `503` error while every other feature keeps working.
 
-## Security notes (what's real vs mocked)
+## Security notes
 
-- **Auth is mocked**: a `get_current_user` dependency returns the seeded agent. This is the single seam to replace with real JWT/session auth later (PRD 6.1).
+- **Real JWT auth + RBAC**: `POST /api/auth/login` issues a signed JWT; `get_current_user` verifies the `Authorization: Bearer` token, and `require_roles(...)` enforces role-based access (admin-only user management and destructive/billing-write actions). Passwords are hashed with bcrypt. There is **no public sign-up** — admins provision accounts.
+- **AI guardrails**: user-supplied text is PII-redacted (emails, phone, card-like numbers) and screened for prompt-injection before reaching the LLM; risky/write copilot actions are returned as **proposed actions** requiring human approval.
 - **No card data is ever stored** - Stripe handles all payment details; the app only mirrors invoices/payments and verifies webhook signatures.
-- **AI actions are audited**: every classify/summarize/suggest-reply writes an `ai_audit_logs` row, and suggested replies are labeled AI drafts requiring human review before sending.
+- **AI actions are audited**: every classify/summarize/suggest-reply/copilot call writes an `ai_audit_logs` row (with tools used + risk flags), and suggested replies are labeled AI drafts requiring human review before sending.
 - **Webhooks are idempotent**: events are deduped by `(provider, event_id)` so Stripe retries are safe.
-- Secrets are read from environment variables and never committed.
-- ORM parameterized queries guard against SQL injection.
-- For a production deployment you would add real authentication, RBAC enforcement, rate limiting, and audit logging (planned in later phases).
+- **Hardening**: per-IP rate limiting on auth + AI endpoints (enforced in production), security response headers, and per-request IDs with structured request logging.
+- Secrets are read from environment variables and never committed; ORM parameterized queries guard against SQL injection.
 
 ## Testing
 
-- Backend: `pytest` (31 tests) covers customer CRUD, ticket workflows (status transitions, resolve, message timeline), dashboard counts, knowledge base (CRUD, chunking, search), AI Assist (structured classification, invalid-JSON safe failure, audit logging) with a fake LLM, and Stripe billing (checkout session, idempotent webhooks, billing summary) with a fake Stripe client. Everything runs against in-memory SQLite with dependency overrides - no external services required.
+- Backend: `pytest` (48 tests) covers customer CRUD, ticket workflows (status transitions, resolve, message timeline), dashboard counts, knowledge base (CRUD, chunking, search), AI Assist (structured classification, invalid-JSON safe failure, audit logging), the tool-calling copilot (scripted tool loop, citations, proposed actions), RAG (fake embeddings + SQLite cosine fallback), guardrails (PII redaction + injection flagging), Stripe billing (checkout session, idempotent webhooks, billing summary), and auth/RBAC (login, JWT-protected routes, admin-only user management). Everything runs against in-memory SQLite with dependency overrides - no external services required.
 - Frontend: type safety is enforced via `npm run typecheck`, `npm run lint`, and `npm run build`; component/e2e tests are planned for later phases per the PRD.
 
 ## Roadmap
@@ -143,7 +159,7 @@ See [.env.example](.env.example). AI Assist requires `OPENAI_API_KEY` (and optio
 | 2     | Knowledge Base     | Done          |
 | 3     | AI Assist v1       | Done          |
 | 4     | Stripe Billing     | Done          |
-| 5     | AI Billing Copilot | Planned       |
-| 6     | RAG + Guardrails   | Planned       |
-| 7     | Production Polish  | Planned       |
+| 5     | AI Billing Copilot | Done          |
+| 6     | RAG + Guardrails   | Done          |
+| 7     | Production Polish  | Done          |
 ```

@@ -5,6 +5,8 @@ import type {
   AiAuditLog,
   AiSuggestedReplyResult,
   AiSummaryResult,
+  ConversationDetail,
+  ConversationRead,
   Page,
   TicketClassification,
 } from '@/types/api';
@@ -32,6 +34,28 @@ export function useSuggestReply(ticketId: string) {
     mutationFn: () =>
       apiRequest<AiSuggestedReplyResult>(`/api/ai/tickets/${ticketId}/suggest-reply`, {
         method: 'POST',
+      }),
+  });
+}
+
+export function useConversations() {
+  return useQuery({
+    queryKey: ['ai', 'conversations'],
+    queryFn: ({ signal }) =>
+      apiRequest<Page<ConversationRead>>('/api/ai/conversations', {
+        query: { limit: 100 },
+        signal,
+      }),
+  });
+}
+
+export function useConversation(conversationId: string | null) {
+  return useQuery({
+    queryKey: ['ai', 'conversations', conversationId],
+    enabled: Boolean(conversationId),
+    queryFn: ({ signal }) =>
+      apiRequest<ConversationDetail>(`/api/ai/conversations/${conversationId}`, {
+        signal,
       }),
   });
 }

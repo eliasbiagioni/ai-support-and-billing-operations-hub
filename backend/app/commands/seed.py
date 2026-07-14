@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
+from app.core.security import hash_password
 from app.db.session import SessionLocal, engine
 from app.models import (
     Base,
@@ -43,11 +44,16 @@ from app.services.knowledge_service import _split_content
 logger = get_logger(__name__)
 
 
+# Shared demo password for all seeded accounts (local/portfolio use only).
+DEMO_PASSWORD = "password123"
+
+
 def _seed_users(db: Session) -> list[User]:
+    password_hash = hash_password(DEMO_PASSWORD)
     users = [
-        User(name="Ava Admin", email="ava.admin@supportledger.local", role=UserRole.admin),
-        User(name="Sam Support", email="sam.support@supportledger.local", role=UserRole.support_agent),
-        User(name="Bianca Billing", email="bianca.billing@supportledger.local", role=UserRole.billing_agent),
+        User(name="Ava Admin", email="ava.admin@supportledger.io", role=UserRole.admin, password_hash=password_hash),
+        User(name="Sam Support", email="sam.support@supportledger.io", role=UserRole.support_agent, password_hash=password_hash),
+        User(name="Bianca Billing", email="bianca.billing@supportledger.io", role=UserRole.billing_agent, password_hash=password_hash),
     ]
     db.add_all(users)
     db.flush()

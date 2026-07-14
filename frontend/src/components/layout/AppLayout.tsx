@@ -1,12 +1,25 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 
-const navItems = [
+import { useAuth } from '@/features/auth/authState';
+import { humanize } from '@/lib/format';
+import type { UserRole } from '@/types/api';
+
+interface NavItem {
+  to: string;
+  label: string;
+  icon: string;
+  roles?: UserRole[];
+}
+
+const navItems: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: 'grid' },
   { to: '/tickets', label: 'Tickets', icon: 'ticket' },
   { to: '/customers', label: 'Customers', icon: 'users' },
   { to: '/knowledge', label: 'Knowledge base', icon: 'book' },
   { to: '/billing', label: 'Billing', icon: 'card' },
+  { to: '/copilot', label: 'Copilot', icon: 'robot' },
   { to: '/ai-audit', label: 'AI audit', icon: 'sparkle' },
+  { to: '/users', label: 'Users', icon: 'users', roles: ['admin'] },
 ];
 
 function NavIcon({ name }: { name: string }) {
@@ -19,6 +32,8 @@ function NavIcon({ name }: { name: string }) {
     book: 'M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V2H6.5A2.5 2.5 0 004 4.5v15z',
     sparkle: 'M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3z',
     card: 'M3 10h18M5 6h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z',
+    robot:
+      'M12 7V4m0 3a4 4 0 014 4v4a2 2 0 01-2 2H10a2 2 0 01-2-2v-4a4 4 0 014-4zM9 13h.01M15 13h.01',
   };
   return (
     <svg
@@ -36,6 +51,17 @@ function NavIcon({ name }: { name: string }) {
 }
 
 export function AppLayout() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const visibleNav = navItems.filter(
+    (item) => !item.roles || (user && item.roles.includes(user.role)),
+  );
+
+  function handleLogout() {
+    logout();
+    navigate('/login', { replace: true });
+  }
+
   return (
     <div className="flex min-h-screen">
       <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-200 bg-white px-4 py-6 md:flex">
@@ -49,7 +75,7 @@ export function AppLayout() {
           </div>
         </div>
         <nav className="flex flex-col gap-1">
-          {navItems.map((item) => (
+          {visibleNav.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -66,8 +92,20 @@ export function AppLayout() {
             </NavLink>
           ))}
         </nav>
-        <div className="mt-auto rounded-lg bg-slate-50 p-3 text-xs text-slate-400">
-          Phases 0-4. Auth is mocked; AI &amp; Stripe require real API keys.
+        <div className="mt-auto space-y-3">
+          {user ? (
+            <div className="rounded-lg bg-slate-50 p-3">
+              <p className="truncate text-sm font-medium text-slate-700">{user.name}</p>
+              <p className="truncate text-xs text-slate-400">{humanize(user.role)}</p>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="mt-2 text-xs font-medium text-brand-600 hover:underline"
+              >
+                Sign out
+              </button>
+            </div>
+          ) : null}
         </div>
       </aside>
 

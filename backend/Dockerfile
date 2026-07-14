@@ -16,4 +16,5 @@ RUN chmod +x /app/entrypoint.sh
 
 EXPOSE 8000
 
-CMD ["/app/entrypoint.sh"]
+# Invoke via bash so the mounted source (which may lose the exec bit) still runs.
+CMD ["bash", "/app/entrypoint.sh"]

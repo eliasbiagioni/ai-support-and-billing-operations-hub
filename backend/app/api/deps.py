@@ -1,25 +1,27 @@
-"""Shared FastAPI dependencies: DB session, pagination, and a mocked current user.
+"""Shared FastAPI dependencies: DB session, pagination, auth, and RBAC.
 
-Auth is intentionally mocked in Phase 0-1 (PRD 6.1). The `get_current_user`
-dependency is the single seam that real JWT/session auth will replace later, so
-routes and services already depend on an authenticated principal.
+Phase 7 replaces the earlier mocked principal with real JWT auth. Every
+authenticated route depends on ``get_current_user``; role-restricted routes add
+``require_roles(...)``.
 """
 
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from fastapi import Depends, Query
-from sqlalchemy import select
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.core.errors import AuthenticationError, AuthorizationError
+from app.core.security import JWTError, decode_access_token
 from app.db.session import get_db
 from app.models.enums import UserRole
 from app.models.user import User
 
-# Stable id for the synthesized fallback admin when no user is seeded yet.
-MOCK_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
+_bearer = HTTPBearer(auto_error=False)
 
 
 @dataclass(frozen=True)
@@ -35,22 +37,42 @@ def get_pagination(
     return Pagination(limit=limit, offset=offset)
 
 
-def get_current_user(db: Session = Depends(get_db)) -> User:
-    """Return the mocked current user.
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+    db: Session = Depends(get_db),
+) -> User:
+    if credentials is None or not credentials.credentials:
+        raise AuthenticationError("Not authenticated.")
+    try:
+        payload = decode_access_token(credentials.credentials)
+    except JWTError as exc:
+        raise AuthenticationError("Invalid or expired token.") from exc
 
-    Falls back to the first active user (the seeded admin). If no user exists yet
-    (e.g. an empty test DB), synthesize a transient admin so endpoints stay usable.
-    """
+    subject = payload.get("sub")
+    try:
+        user_id = uuid.UUID(str(subject))
+    except (ValueError, TypeError) as exc:
+        raise AuthenticationError("Invalid token subject.") from exc
 
-    user = db.scalars(
-        select(User).where(User.active.is_(True)).order_by(User.created_at)
-    ).first()
-    if user is not None:
-        return user
-    return User(
-        id=MOCK_USER_ID,
-        name="Mock Admin",
-        email="admin@supportledger.local",
-        role=UserRole.admin,
-        active=True,
-    )
+    user = db.get(User, user_id)
+    if user is None or not user.active:
+        raise AuthenticationError("User no longer exists or is disabled.")
+    return user
+
+
+def require_roles(*roles: UserRole) -> Callable[[User], User]:
+    """Dependency factory enforcing that the current user has one of ``roles``."""
+
+    allowed = set(roles)
+
+    def _dependency(current_user: User = Depends(get_current_user)) -> User:
+        if current_user.role not in allowed:
+            raise AuthorizationError(
+                "You do not have permission to perform this action."
+            )
+        return current_user
+
+    return _dependency
+
+
+require_admin = require_roles(UserRole.admin)

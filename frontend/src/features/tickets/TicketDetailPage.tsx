@@ -287,9 +287,42 @@ export function TicketDetailPage() {
             ) : null}
 
             {suggestReply.data ? (
-              <p className="mt-3 text-xs text-emerald-600">
-                Draft added to the composer below — review and send.
-              </p>
+              <div className="mt-3 space-y-2">
+                <p className="text-xs text-emerald-600">
+                  Draft added to the composer below — review and send.
+                </p>
+                {suggestReply.data.risk_flags.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {suggestReply.data.risk_flags.map((flag) => (
+                      <Badge key={flag} tone={flag === 'human_review_required' ? 'amber' : 'red'}>
+                        {humanize(flag)}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
+                {suggestReply.data.citations.length > 0 ? (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      Grounded in
+                    </p>
+                    <ul className="space-y-1">
+                      {suggestReply.data.citations.map((citation, index) => (
+                        <li
+                          key={`${citation.article_id}-${index}`}
+                          className="text-xs text-slate-500"
+                        >
+                          <Link
+                            to="/knowledge"
+                            className="font-medium text-brand-600 hover:underline"
+                          >
+                            {citation.title}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
             ) : null}
           </Card>
 

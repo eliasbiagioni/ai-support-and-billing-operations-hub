@@ -196,6 +196,8 @@ export interface AiSummaryResult {
 
 export interface AiSuggestedReplyResult {
   reply: string;
+  citations: Citation[];
+  risk_flags: string[];
 }
 
 export interface AiAuditLog {
@@ -211,6 +213,89 @@ export interface AiAuditLog {
   approved: boolean;
   created_at: string;
 }
+
+export interface Citation {
+  article_id: string;
+  chunk_id: string | null;
+  title: string;
+  snippet: string;
+}
+
+export interface ProposedAction {
+  type: string;
+  customer_id: string | null;
+  reason: string;
+  requires_approval: boolean;
+}
+
+export interface CopilotRequest {
+  message: string;
+  customer_id?: string | null;
+  ticket_id?: string | null;
+}
+
+export interface CopilotResponse {
+  answer: string;
+  tools_called: string[];
+  citations: Citation[];
+  proposed_actions: ProposedAction[];
+  risk_flags: string[];
+}
+
+export interface ConversationRead {
+  id: string;
+  user_id: string | null;
+  customer_id: string | null;
+  ticket_id: string | null;
+  title: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConversationMessageRead {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  tools_called: string[];
+  citations: Citation[];
+  proposed_actions: ProposedAction[];
+  risk_flags: string[];
+  created_at: string;
+}
+
+export interface ConversationDetail extends ConversationRead {
+  messages: ConversationMessageRead[];
+}
+
+// Server -> client events over the copilot WebSocket.
+export interface CopilotReadyEvent {
+  type: 'ready';
+  conversation_id: string;
+  customer_id: string | null;
+  history: ConversationMessageRead[];
+}
+
+export interface CopilotToolActivityEvent {
+  type: 'tool_activity';
+  tool: string;
+}
+
+export interface CopilotAnswerEvent extends CopilotResponse {
+  type: 'answer';
+  message_id: string;
+  created_at: string;
+}
+
+export interface CopilotErrorEvent {
+  type: 'error';
+  message: string;
+}
+
+export type CopilotWsEvent =
+  | CopilotReadyEvent
+  | CopilotToolActivityEvent
+  | CopilotAnswerEvent
+  | CopilotErrorEvent;
 
 export type InvoiceStatus = 'draft' | 'open' | 'paid' | 'void' | 'uncollectible';
 
@@ -271,6 +356,42 @@ export interface DashboardSummary {
   billing_tickets: number;
   unresolved_tickets: number;
   total_customers: number;
+}
+
+export type UserRole = 'admin' | 'support_agent' | 'billing_agent' | 'viewer';
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  active: boolean;
+  created_at: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+  user: AuthUser;
+}
+
+export interface UserCreate {
+  name: string;
+  email: string;
+  password: string;
+  role?: UserRole;
+  active?: boolean;
+}
+
+export interface UserUpdate {
+  name?: string;
+  role?: UserRole;
+  active?: boolean;
 }
 
 export interface ApiErrorBody {

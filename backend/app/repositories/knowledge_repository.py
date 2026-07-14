@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import uuid
 
 from sqlalchemy import func, or_, select
@@ -10,6 +11,17 @@ from sqlalchemy.orm import Session, selectinload
 from app.models.enums import ArticleVisibility
 from app.models.knowledge_article import KnowledgeArticle
 from app.models.knowledge_chunk import KnowledgeChunk
+
+
+def _cosine_similarity(a: list[float], b: list[float]) -> float:
+    if not a or not b or len(a) != len(b):
+        return -1.0
+    dot = sum(x * y for x, y in zip(a, b, strict=False))
+    norm_a = math.sqrt(sum(x * x for x in a))
+    norm_b = math.sqrt(sum(y * y for y in b))
+    if norm_a == 0 or norm_b == 0:
+        return -1.0
+    return dot / (norm_a * norm_b)
 
 
 class KnowledgeRepository:
@@ -103,3 +115,43 @@ class KnowledgeRepository:
             .limit(limit)
         )
         return [(article, chunk) for article, chunk in self.db.execute(stmt).all()]
+
+    def semantic_search(
+        self,
+        embedding: list[float],
+        *,
+        visibilities: tuple[ArticleVisibility, ...],
+        limit: int,
+    ) -> list[tuple[KnowledgeArticle, KnowledgeChunk]]:
+        """Nearest-neighbour search by embedding.
+
+        Uses pgvector's cosine distance operator on Postgres; on SQLite (tests)
+        falls back to computing cosine similarity in Python so no vector
+        extension is required.
+        """
+
+        dialect = self.db.get_bind().dialect.name
+        base = (
+            select(KnowledgeArticle, KnowledgeChunk)
+            .join(KnowledgeChunk, KnowledgeChunk.article_id == KnowledgeArticle.id)
+            .where(
+                KnowledgeArticle.active.is_(True),
+                KnowledgeArticle.visibility.in_(visibilities),
+                KnowledgeChunk.embedding.isnot(None),
+            )
+        )
+
+        if dialect == "postgresql":
+            distance = KnowledgeChunk.embedding.cosine_distance(embedding)
+            stmt = base.order_by(distance).limit(limit)
+            return [(article, chunk) for article, chunk in self.db.execute(stmt).all()]
+
+        # Portable fallback: score every candidate chunk in Python.
+        scored: list[tuple[float, KnowledgeArticle, KnowledgeChunk]] = []
+        for article, chunk in self.db.execute(base).all():
+            if chunk.embedding is None:
+                continue
+            score = _cosine_similarity(list(chunk.embedding), embedding)
+            scored.append((score, article, chunk))
+        scored.sort(key=lambda row: row[0], reverse=True)
+        return [(article, chunk) for _, article, chunk in scored[:limit]]

@@ -35,12 +35,73 @@ class TicketClassification(BaseModel):
         return normalized if normalized in allowed else "neutral"
 
 
+class Citation(BaseModel):
+    """A knowledge base source the copilot/RAG grounded its answer on."""
+
+    article_id: uuid.UUID
+    chunk_id: uuid.UUID | None = None
+    title: str
+    snippet: str
+
+
 class SummaryResult(BaseModel):
     summary: str
 
 
 class SuggestedReplyResult(BaseModel):
     reply: str
+    citations: list[Citation] = Field(default_factory=list)
+    risk_flags: list[str] = Field(default_factory=list)
+
+
+class ProposedAction(BaseModel):
+    """A risky/write action the copilot queued for human approval."""
+
+    type: str
+    customer_id: uuid.UUID | None = None
+    reason: str = ""
+    requires_approval: bool = True
+
+
+class CopilotRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=4000)
+    customer_id: uuid.UUID | None = None
+    ticket_id: uuid.UUID | None = None
+
+
+class CopilotResponse(BaseModel):
+    answer: str
+    tools_called: list[str] = Field(default_factory=list)
+    citations: list[Citation] = Field(default_factory=list)
+    proposed_actions: list[ProposedAction] = Field(default_factory=list)
+    risk_flags: list[str] = Field(default_factory=list)
+
+
+class ConversationRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    user_id: uuid.UUID | None = None
+    customer_id: uuid.UUID | None = None
+    ticket_id: uuid.UUID | None = None
+    title: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class ConversationMessageRead(BaseModel):
+    id: uuid.UUID
+    role: str
+    content: str
+    tools_called: list[str] = Field(default_factory=list)
+    citations: list[Citation] = Field(default_factory=list)
+    proposed_actions: list[ProposedAction] = Field(default_factory=list)
+    risk_flags: list[str] = Field(default_factory=list)
+    created_at: datetime
+
+
+class ConversationDetail(ConversationRead):
+    messages: list[ConversationMessageRead] = Field(default_factory=list)
 
 
 class AIAuditLogRead(BaseModel):

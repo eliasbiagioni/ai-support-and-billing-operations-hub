@@ -45,6 +45,16 @@ class ConflictError(AppError):
     code = "conflict"
 
 
+class AuthenticationError(AppError):
+    status_code = status.HTTP_401_UNAUTHORIZED
+    code = "unauthorized"
+
+
+class AuthorizationError(AppError):
+    status_code = status.HTTP_403_FORBIDDEN
+    code = "forbidden"
+
+
 def _error_body(code: str, message: str, details: Any | None = None) -> dict[str, Any]:
     return {"error": {"code": code, "message": message, "details": details}}
 
