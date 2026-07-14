@@ -15,6 +15,12 @@ import {
 } from '@/components/ui';
 import { ConfirmDialog } from '@/components/ui/Modal';
 import {
+  useClassifyTicket,
+  useSuggestReply,
+  useSummarizeTicket,
+} from '@/features/ai/aiApi';
+import { useCustomerBilling } from '@/features/billing/billingApi';
+import {
   useAddTicketMessage,
   useResolveTicket,
   useTicket,
@@ -25,6 +31,7 @@ import {
   customerStatusTone,
   formatDateTime,
   humanize,
+  paymentStatusTone,
   TICKET_PRIORITIES,
   TICKET_STATUSES,
   ticketCategoryTone,
@@ -47,16 +54,33 @@ const authorTone: Record<TicketMessage['author_type'], string> = {
 
 export function TicketDetailPage() {
   const params = useParams();
-  const ticketId = Number(params.ticketId);
+  const ticketId = params.ticketId ?? '';
 
   const { data: ticket, isLoading, isError, error, refetch } = useTicket(ticketId);
   const updateTicket = useUpdateTicket(ticketId);
   const resolveTicket = useResolveTicket(ticketId);
   const addMessage = useAddTicketMessage(ticketId);
 
+  const classify = useClassifyTicket(ticketId);
+  const summarize = useSummarizeTicket(ticketId);
+  const suggestReply = useSuggestReply(ticketId);
+
+  const billing = useCustomerBilling(
+    ticket?.category === 'billing' ? (ticket.customer?.id ?? '') : '',
+  );
+
   const [body, setBody] = useState('');
   const [visibility, setVisibility] = useState<MessageVisibility>('internal');
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  function handleSuggestReply() {
+    suggestReply.mutate(undefined, {
+      onSuccess: (result) => {
+        setBody(result.reply);
+        setVisibility('public');
+      },
+    });
+  }
 
   if (isLoading) return <Spinner label="Loading ticket…" />;
   if (isError || !ticket) {
@@ -192,6 +216,84 @@ export function TicketDetailPage() {
 
         <div className="space-y-6 lg:col-span-1">
           <Card className="p-5">
+            <div className="mb-3 flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-slate-700">AI Assist</h2>
+              <Badge tone="indigo">Beta</Badge>
+            </div>
+            <p className="mb-3 text-xs text-slate-400">
+              AI-generated drafts. Always review before acting.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => classify.mutate()}
+                disabled={classify.isPending}
+              >
+                {classify.isPending ? 'Classifying…' : 'Classify'}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => summarize.mutate()}
+                disabled={summarize.isPending}
+              >
+                {summarize.isPending ? 'Summarizing…' : 'Summarize'}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={handleSuggestReply}
+                disabled={suggestReply.isPending}
+              >
+                {suggestReply.isPending ? 'Drafting…' : 'Suggest reply'}
+              </Button>
+            </div>
+
+            {classify.isError || summarize.isError || suggestReply.isError ? (
+              <p className="mt-3 text-sm text-rose-600">
+                {toErrorMessage(
+                  classify.error ?? summarize.error ?? suggestReply.error,
+                )}
+              </p>
+            ) : null}
+
+            {classify.data ? (
+              <div className="mt-4 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-indigo-600">
+                  AI classification
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Badge tone="indigo">{humanize(classify.data.category)}</Badge>
+                  <Badge tone="amber">{humanize(classify.data.urgency)}</Badge>
+                  <Badge tone="slate">{humanize(classify.data.sentiment)}</Badge>
+                  {classify.data.billing_lookup_required ? (
+                    <Badge tone="red">Billing lookup</Badge>
+                  ) : null}
+                </div>
+                <p className="mt-2 text-slate-600">{classify.data.reasoning_summary}</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Suggested team: {classify.data.suggested_team}
+                </p>
+              </div>
+            ) : null}
+
+            {summarize.data ? (
+              <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-emerald-600">
+                  AI summary
+                </p>
+                <p className="whitespace-pre-wrap text-slate-700">
+                  {summarize.data.summary}
+                </p>
+              </div>
+            ) : null}
+
+            {suggestReply.data ? (
+              <p className="mt-3 text-xs text-emerald-600">
+                Draft added to the composer below — review and send.
+              </p>
+            ) : null}
+          </Card>
+
+          <Card className="p-5">
             <h2 className="mb-4 text-sm font-semibold text-slate-700">Customer</h2>
             {ticket.customer ? (
               <div className="space-y-2 text-sm">
@@ -210,6 +312,44 @@ export function TicketDetailPage() {
               <p className="text-sm text-slate-500">No customer linked.</p>
             )}
           </Card>
+
+          {ticket.category === 'billing' ? (
+            <Card className="p-5">
+              <h2 className="mb-4 text-sm font-semibold text-slate-700">Billing snapshot</h2>
+              {billing.isLoading ? <Spinner label="Loading billing…" /> : null}
+              {billing.data ? (
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Plan</span>
+                    <span className="text-slate-800">
+                      {billing.data.plan_name ?? '—'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Latest payment</span>
+                    {billing.data.latest_payment ? (
+                      <Badge tone={paymentStatusTone[billing.data.latest_payment.status]}>
+                        {humanize(billing.data.latest_payment.status)}
+                      </Badge>
+                    ) : (
+                      <span className="text-slate-400">None</span>
+                    )}
+                  </div>
+                  <div className="pt-1">
+                    <Link
+                      to="/billing"
+                      className="text-xs text-brand-600 hover:underline"
+                    >
+                      View billing dashboard →
+                    </Link>
+                  </div>
+                </div>
+              ) : null}
+              {billing.isError ? (
+                <p className="text-sm text-rose-600">{toErrorMessage(billing.error)}</p>
+              ) : null}
+            </Card>
+          ) : null}
 
           <Card className="p-5">
             <h2 className="mb-4 text-sm font-semibold text-slate-700">Manage</h2>

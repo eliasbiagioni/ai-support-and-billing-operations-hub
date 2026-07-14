@@ -69,7 +69,7 @@ def client(db_session: Session, seeded_user: User) -> Iterator[TestClient]:
 
 
 @pytest.fixture()
-def customer_id(client: TestClient) -> int:
+def customer_id(client: TestClient) -> str:
     response = client.post(
         "/api/customers",
         json={"company_name": "Acme Co", "email": "ops@acme.example"},

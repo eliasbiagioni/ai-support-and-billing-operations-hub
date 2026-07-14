@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import uuid
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, Enum, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, TimestampMixin
+from app.db.base import Base, BaseModelMixin
 from app.models.enums import (
     MessageAuthorType,
     MessageVisibility,
@@ -21,7 +22,7 @@ if TYPE_CHECKING:
     from app.models.user import User
 
 
-class Ticket(TimestampMixin, Base):
+class Ticket(BaseModelMixin, Base):
     __tablename__ = "tickets"
     __table_args__ = (
         Index("ix_tickets_customer_id", "customer_id"),
@@ -29,8 +30,7 @@ class Ticket(TimestampMixin, Base):
         Index("ix_tickets_category", "category"),
     )
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    customer_id: Mapped[int] = mapped_column(
+    customer_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("customers.id", ondelete="CASCADE"), nullable=False
     )
     subject: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -49,7 +49,7 @@ class Ticket(TimestampMixin, Base):
         default=TicketCategory.other,
         nullable=False,
     )
-    assigned_to: Mapped[int | None] = mapped_column(
+    assigned_to: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     ai_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -63,17 +63,16 @@ class Ticket(TimestampMixin, Base):
     )
 
 
-class TicketMessage(TimestampMixin, Base):
+class TicketMessage(BaseModelMixin, Base):
     __tablename__ = "ticket_messages"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    ticket_id: Mapped[int] = mapped_column(
+    ticket_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False, index=True
     )
     author_type: Mapped[MessageAuthorType] = mapped_column(
         Enum(MessageAuthorType, name="message_author_type"), nullable=False
     )
-    author_id: Mapped[int | None] = mapped_column(
+    author_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     body: Mapped[str] = mapped_column(Text, nullable=False)
@@ -83,7 +82,7 @@ class TicketMessage(TimestampMixin, Base):
         nullable=False,
     )
     ai_generated: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    approved_by: Mapped[int | None] = mapped_column(
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
 

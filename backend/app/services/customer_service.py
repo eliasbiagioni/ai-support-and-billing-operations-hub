@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 from sqlalchemy.orm import Session
 
 from app.core.errors import NotFoundError
@@ -18,7 +20,7 @@ class CustomerService:
     def list_customers(self, *, limit: int, offset: int) -> tuple[list[Customer], int]:
         return self.repo.list(limit=limit, offset=offset)
 
-    def get_customer(self, customer_id: int) -> Customer:
+    def get_customer(self, customer_id: uuid.UUID) -> Customer:
         customer = self.repo.get(customer_id)
         if customer is None:
             raise NotFoundError(f"Customer {customer_id} not found")
@@ -31,7 +33,7 @@ class CustomerService:
         self.db.refresh(customer)
         return customer
 
-    def update_customer(self, customer_id: int, payload: CustomerUpdate) -> Customer:
+    def update_customer(self, customer_id: uuid.UUID, payload: CustomerUpdate) -> Customer:
         customer = self.get_customer(customer_id)
         for field, value in payload.model_dump(exclude_unset=True).items():
             setattr(customer, field, value)

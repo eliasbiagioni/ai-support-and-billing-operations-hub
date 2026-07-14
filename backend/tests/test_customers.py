@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 from fastapi.testclient import TestClient
 
 
@@ -38,7 +40,7 @@ def test_list_customers_pagination(client: TestClient) -> None:
     assert body["limit"] == 2
 
 
-def test_update_customer(client: TestClient, customer_id: int) -> None:
+def test_update_customer(client: TestClient, customer_id: str) -> None:
     response = client.patch(
         f"/api/customers/{customer_id}",
         json={"status": "suspended", "notes": "Payment failed"},
@@ -50,7 +52,7 @@ def test_update_customer(client: TestClient, customer_id: int) -> None:
 
 
 def test_get_missing_customer_returns_404(client: TestClient) -> None:
-    response = client.get("/api/customers/9999")
+    response = client.get(f"/api/customers/{uuid.uuid4()}")
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "not_found"
 

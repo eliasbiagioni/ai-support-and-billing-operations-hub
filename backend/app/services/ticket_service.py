@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, NotFoundError, ValidationAppError
@@ -61,7 +63,7 @@ class TicketService:
         status: TicketStatus | None = None,
         category: TicketCategory | None = None,
         priority: TicketPriority | None = None,
-        customer_id: int | None = None,
+        customer_id: uuid.UUID | None = None,
         search: str | None = None,
     ) -> tuple[list[Ticket], int]:
         return self.repo.list(
@@ -74,7 +76,7 @@ class TicketService:
             search=search,
         )
 
-    def get_ticket(self, ticket_id: int) -> Ticket:
+    def get_ticket(self, ticket_id: uuid.UUID) -> Ticket:
         ticket = self.repo.get_with_detail(ticket_id)
         if ticket is None:
             raise NotFoundError(f"Ticket {ticket_id} not found")
@@ -98,7 +100,7 @@ class TicketService:
                 details={"from": current, "to": target},
             )
 
-    def update_ticket(self, ticket_id: int, payload: TicketUpdate) -> Ticket:
+    def update_ticket(self, ticket_id: uuid.UUID, payload: TicketUpdate) -> Ticket:
         ticket = self._get_or_404(ticket_id)
         data = payload.model_dump(exclude_unset=True)
 
@@ -111,7 +113,7 @@ class TicketService:
         self.db.commit()
         return self.get_ticket(ticket.id)
 
-    def resolve_ticket(self, ticket_id: int) -> Ticket:
+    def resolve_ticket(self, ticket_id: uuid.UUID) -> Ticket:
         ticket = self._get_or_404(ticket_id)
         self._validate_transition(ticket.status, TicketStatus.resolved)
         ticket.status = TicketStatus.resolved
@@ -119,7 +121,7 @@ class TicketService:
         return self.get_ticket(ticket.id)
 
     def add_message(
-        self, ticket_id: int, payload: TicketMessageCreate, current_user: User
+        self, ticket_id: uuid.UUID, payload: TicketMessageCreate, current_user: User
     ) -> TicketMessage:
         ticket = self._get_or_404(ticket_id)
         author_id = current_user.id if payload.author_type == MessageAuthorType.agent else None
@@ -136,7 +138,7 @@ class TicketService:
         self.db.refresh(message)
         return message
 
-    def _get_or_404(self, ticket_id: int) -> Ticket:
+    def _get_or_404(self, ticket_id: uuid.UUID) -> Ticket:
         ticket = self.repo.get(ticket_id)
         if ticket is None:
             raise NotFoundError(f"Ticket {ticket_id} not found")

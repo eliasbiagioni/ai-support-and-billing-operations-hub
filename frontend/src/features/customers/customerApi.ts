@@ -11,7 +11,7 @@ import type {
 const customerKeys = {
   all: ['customers'] as const,
   list: (limit: number, offset: number) => ['customers', 'list', limit, offset] as const,
-  detail: (id: number) => ['customers', 'detail', id] as const,
+  detail: (id: string) => ['customers', 'detail', id] as const,
 };
 
 export function useCustomers(limit = 50, offset = 0) {
@@ -22,12 +22,12 @@ export function useCustomers(limit = 50, offset = 0) {
   });
 }
 
-export function useCustomer(customerId: number) {
+export function useCustomer(customerId: string) {
   return useQuery({
     queryKey: customerKeys.detail(customerId),
     queryFn: ({ signal }) =>
       apiRequest<Customer>(`/api/customers/${customerId}`, { signal }),
-    enabled: Number.isFinite(customerId),
+    enabled: customerId !== '',
   });
 }
 
@@ -42,7 +42,7 @@ export function useCreateCustomer() {
   });
 }
 
-export function useUpdateCustomer(customerId: number) {
+export function useUpdateCustomer(customerId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: CustomerUpdate) =>

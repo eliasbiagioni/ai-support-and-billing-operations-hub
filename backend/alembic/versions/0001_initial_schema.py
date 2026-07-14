@@ -42,7 +42,7 @@ message_visibility = sa.Enum("internal", "public", name="message_visibility")
 def upgrade() -> None:
     op.create_table(
         "users",
-        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("id", sa.Uuid(), primary_key=True),
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("email", sa.String(length=320), nullable=False),
         sa.Column("password_hash", sa.String(length=255), nullable=True),
@@ -56,7 +56,7 @@ def upgrade() -> None:
 
     op.create_table(
         "plans",
-        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("id", sa.Uuid(), primary_key=True),
         sa.Column("name", sa.String(length=120), nullable=False),
         sa.Column("price_amount", sa.Numeric(precision=12, scale=2), nullable=False),
         sa.Column("currency", sa.String(length=3), nullable=False),
@@ -70,12 +70,12 @@ def upgrade() -> None:
 
     op.create_table(
         "customers",
-        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("id", sa.Uuid(), primary_key=True),
         sa.Column("company_name", sa.String(length=255), nullable=False),
         sa.Column("contact_name", sa.String(length=255), nullable=True),
         sa.Column("email", sa.String(length=320), nullable=False),
         sa.Column("status", customer_status, nullable=False),
-        sa.Column("plan_id", sa.Integer(), nullable=True),
+        sa.Column("plan_id", sa.Uuid(), nullable=True),
         sa.Column("stripe_customer_id", sa.String(length=255), nullable=True),
         sa.Column("notes", sa.Text(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
@@ -87,15 +87,15 @@ def upgrade() -> None:
 
     op.create_table(
         "tickets",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("customer_id", sa.Integer(), nullable=False),
+        sa.Column("id", sa.Uuid(), primary_key=True),
+        sa.Column("customer_id", sa.Uuid(), nullable=False),
         sa.Column("subject", sa.String(length=255), nullable=False),
         sa.Column("description", sa.Text(), nullable=False),
         sa.Column("source", sa.String(length=60), nullable=False),
         sa.Column("status", ticket_status, nullable=False),
         sa.Column("priority", ticket_priority, nullable=False),
         sa.Column("category", ticket_category, nullable=False),
-        sa.Column("assigned_to", sa.Integer(), nullable=True),
+        sa.Column("assigned_to", sa.Uuid(), nullable=True),
         sa.Column("ai_summary", sa.Text(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
@@ -108,14 +108,14 @@ def upgrade() -> None:
 
     op.create_table(
         "ticket_messages",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("ticket_id", sa.Integer(), nullable=False),
+        sa.Column("id", sa.Uuid(), primary_key=True),
+        sa.Column("ticket_id", sa.Uuid(), nullable=False),
         sa.Column("author_type", message_author_type, nullable=False),
-        sa.Column("author_id", sa.Integer(), nullable=True),
+        sa.Column("author_id", sa.Uuid(), nullable=True),
         sa.Column("body", sa.Text(), nullable=False),
         sa.Column("visibility", message_visibility, nullable=False),
         sa.Column("ai_generated", sa.Boolean(), nullable=False),
-        sa.Column("approved_by", sa.Integer(), nullable=True),
+        sa.Column("approved_by", sa.Uuid(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.ForeignKeyConstraint(["ticket_id"], ["tickets.id"], ondelete="CASCADE"),

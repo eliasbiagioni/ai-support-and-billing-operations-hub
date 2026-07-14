@@ -1,10 +1,25 @@
 import type { BadgeTone } from '@/components/ui';
 import type {
   CustomerStatus,
+  InvoiceStatus,
+  PaymentStatus,
   TicketCategory,
   TicketPriority,
   TicketStatus,
 } from '@/types/api';
+
+export function formatMoney(amount: string | number, currency = 'usd'): string {
+  const value = typeof amount === 'string' ? Number(amount) : amount;
+  if (Number.isNaN(value)) return String(amount);
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: currency.toUpperCase(),
+    }).format(value);
+  } catch {
+    return `${value.toFixed(2)} ${currency.toUpperCase()}`;
+  }
+}
 
 export function formatDateTime(iso: string): string {
   const date = new Date(iso);
@@ -44,6 +59,21 @@ export const ticketCategoryTone: Record<TicketCategory, BadgeTone> = {
   account: 'amber',
   product: 'green',
   other: 'slate',
+};
+
+export const invoiceStatusTone: Record<InvoiceStatus, BadgeTone> = {
+  draft: 'slate',
+  open: 'amber',
+  paid: 'green',
+  void: 'slate',
+  uncollectible: 'red',
+};
+
+export const paymentStatusTone: Record<PaymentStatus, BadgeTone> = {
+  pending: 'amber',
+  succeeded: 'green',
+  failed: 'red',
+  refunded: 'slate',
 };
 
 export const customerStatusTone: Record<CustomerStatus, BadgeTone> = {

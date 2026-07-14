@@ -12,6 +12,11 @@ import {
   Spinner,
   Textarea,
 } from '@/components/ui';
+import { ConfirmDialog } from '@/components/ui/Modal';
+import {
+  useCreateCheckoutSession,
+  useCustomerBilling,
+} from '@/features/billing/billingApi';
 import { useCustomer, useUpdateCustomer } from '@/features/customers/customerApi';
 import { useTickets } from '@/features/tickets/ticketApi';
 import { toErrorMessage } from '@/lib/errors';
@@ -19,7 +24,10 @@ import {
   CUSTOMER_STATUSES,
   customerStatusTone,
   formatDateTime,
+  formatMoney,
   humanize,
+  invoiceStatusTone,
+  paymentStatusTone,
   ticketPriorityTone,
   ticketStatusTone,
 } from '@/lib/format';
@@ -27,15 +35,27 @@ import type { CustomerStatus } from '@/types/api';
 
 export function CustomerDetailPage() {
   const params = useParams();
-  const customerId = Number(params.customerId);
+  const customerId = params.customerId ?? '';
 
   const { data: customer, isLoading, isError, error, refetch } = useCustomer(customerId);
   const tickets = useTickets({ customer_id: customerId });
   const updateCustomer = useUpdateCustomer(customerId);
+  const billing = useCustomerBilling(customerId);
+  const checkout = useCreateCheckoutSession(customerId);
 
   const [editing, setEditing] = useState(false);
   const [status, setStatus] = useState<CustomerStatus>('active');
   const [notes, setNotes] = useState('');
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+
+  function startCheckout() {
+    checkout.mutate(undefined, {
+      onSuccess: (session) => {
+        setCheckoutOpen(false);
+        window.open(session.url, '_blank', 'noopener');
+      },
+    });
+  }
 
   function startEditing() {
     if (!customer) return;
@@ -175,6 +195,80 @@ export function CustomerDetailPage() {
           ) : null}
         </Card>
       </div>
+
+      <Card className="mt-6 p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-slate-700">Billing</h2>
+          <Button
+            variant="secondary"
+            onClick={() => setCheckoutOpen(true)}
+            disabled={checkout.isPending}
+          >
+            Create checkout session
+          </Button>
+        </div>
+
+        {billing.isLoading ? <Spinner label="Loading billing…" /> : null}
+        {billing.isError ? (
+          <ErrorState
+            message={toErrorMessage(billing.error)}
+            onRetry={() => billing.refetch()}
+          />
+        ) : null}
+
+        {billing.data ? (
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-400">Plan</p>
+              <p className="mt-1 text-sm text-slate-800">
+                {billing.data.plan_name ?? '—'}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-400">
+                Outstanding balance
+              </p>
+              <p className="mt-1 text-sm text-slate-800">
+                {formatMoney(billing.data.outstanding_balance)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-400">
+                Latest activity
+              </p>
+              <div className="mt-1 flex flex-wrap gap-2">
+                {billing.data.latest_invoice ? (
+                  <Badge tone={invoiceStatusTone[billing.data.latest_invoice.status]}>
+                    Invoice: {humanize(billing.data.latest_invoice.status)}
+                  </Badge>
+                ) : null}
+                {billing.data.latest_payment ? (
+                  <Badge tone={paymentStatusTone[billing.data.latest_payment.status]}>
+                    Payment: {humanize(billing.data.latest_payment.status)}
+                  </Badge>
+                ) : null}
+                {!billing.data.latest_invoice && !billing.data.latest_payment ? (
+                  <span className="text-sm text-slate-500">No activity yet.</span>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </Card>
+
+      <ConfirmDialog
+        open={checkoutOpen}
+        title="Create Stripe checkout session?"
+        description="This opens a Stripe Checkout page in a new tab for the customer to complete a subscription. Requires Stripe keys to be configured."
+        confirmLabel="Create session"
+        loading={checkout.isPending}
+        onCancel={() => setCheckoutOpen(false)}
+        onConfirm={startCheckout}
+      >
+        {checkout.isError ? (
+          <p className="text-sm text-rose-600">{toErrorMessage(checkout.error)}</p>
+        ) : null}
+      </ConfirmDialog>
     </div>
   );
 }

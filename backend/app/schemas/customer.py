@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
@@ -14,7 +15,7 @@ class CustomerBase(BaseModel):
     contact_name: str | None = Field(default=None, max_length=255)
     email: EmailStr
     status: CustomerStatus = CustomerStatus.active
-    plan_id: int | None = None
+    plan_id: uuid.UUID | None = None
     stripe_customer_id: str | None = Field(default=None, max_length=255)
     notes: str | None = None
 
@@ -28,7 +29,7 @@ class CustomerUpdate(BaseModel):
     contact_name: str | None = Field(default=None, max_length=255)
     email: EmailStr | None = None
     status: CustomerStatus | None = None
-    plan_id: int | None = None
+    plan_id: uuid.UUID | None = None
     stripe_customer_id: str | None = Field(default=None, max_length=255)
     notes: str | None = None
 
@@ -36,7 +37,7 @@ class CustomerUpdate(BaseModel):
 class PlanRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: uuid.UUID
     name: str
     currency: str
 
@@ -44,12 +45,12 @@ class PlanRead(BaseModel):
 class CustomerRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: uuid.UUID
     company_name: str
     contact_name: str | None
     email: EmailStr
     status: CustomerStatus
-    plan_id: int | None
+    plan_id: uuid.UUID | None
     plan: PlanRead | None = None
     stripe_customer_id: str | None
     notes: str | None

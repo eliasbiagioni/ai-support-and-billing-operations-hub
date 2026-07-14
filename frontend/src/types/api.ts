@@ -38,18 +38,18 @@ export interface Page<T> {
 }
 
 export interface PlanRead {
-  id: number;
+  id: string;
   name: string;
   currency: string;
 }
 
 export interface Customer {
-  id: number;
+  id: string;
   company_name: string;
   contact_name: string | null;
   email: string;
   status: CustomerStatus;
-  plan_id: number | null;
+  plan_id: string | null;
   plan: PlanRead | null;
   stripe_customer_id: string | null;
   notes: string | null;
@@ -62,41 +62,41 @@ export interface CustomerCreate {
   contact_name?: string | null;
   email: string;
   status?: CustomerStatus;
-  plan_id?: number | null;
+  plan_id?: string | null;
   notes?: string | null;
 }
 
 export type CustomerUpdate = Partial<CustomerCreate>;
 
 export interface CustomerSummary {
-  id: number;
+  id: string;
   company_name: string;
   email: string;
   status: string;
 }
 
 export interface TicketMessage {
-  id: number;
-  ticket_id: number;
+  id: string;
+  ticket_id: string;
   author_type: MessageAuthorType;
-  author_id: number | null;
+  author_id: string | null;
   body: string;
   visibility: MessageVisibility;
   ai_generated: boolean;
-  approved_by: number | null;
+  approved_by: string | null;
   created_at: string;
 }
 
 export interface Ticket {
-  id: number;
-  customer_id: number;
+  id: string;
+  customer_id: string;
   subject: string;
   description: string;
   source: string;
   status: TicketStatus;
   priority: TicketPriority;
   category: TicketCategory;
-  assigned_to: number | null;
+  assigned_to: string | null;
   ai_summary: string | null;
   created_at: string;
   updated_at: string;
@@ -108,14 +108,14 @@ export interface TicketDetail extends Ticket {
 }
 
 export interface TicketCreate {
-  customer_id: number;
+  customer_id: string;
   subject: string;
   description: string;
   source?: string;
   category?: TicketCategory;
   priority?: TicketPriority;
   status?: TicketStatus;
-  assigned_to?: number | null;
+  assigned_to?: string | null;
 }
 
 export interface TicketUpdate {
@@ -124,7 +124,7 @@ export interface TicketUpdate {
   status?: TicketStatus;
   priority?: TicketPriority;
   category?: TicketCategory;
-  assigned_to?: number | null;
+  assigned_to?: string | null;
 }
 
 export interface TicketMessageCreate {
@@ -132,6 +132,137 @@ export interface TicketMessageCreate {
   author_type?: MessageAuthorType;
   visibility?: MessageVisibility;
   ai_generated?: boolean;
+}
+
+export type ArticleVisibility = 'internal' | 'public';
+
+export interface KnowledgeChunk {
+  id: string;
+  article_id: string;
+  chunk_index: number;
+  content: string;
+  token_count: number;
+}
+
+export interface KnowledgeArticle {
+  id: string;
+  title: string;
+  content: string;
+  tags: string[];
+  visibility: ArticleVisibility;
+  active: boolean;
+  created_by: string | null;
+  chunk_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ArticleCreate {
+  title: string;
+  content: string;
+  tags?: string[];
+  visibility?: ArticleVisibility;
+  active?: boolean;
+}
+
+export interface ArticleUpdate {
+  title?: string;
+  content?: string;
+  tags?: string[];
+  visibility?: ArticleVisibility;
+  active?: boolean;
+}
+
+export interface KnowledgeSearchResult {
+  article_id: string;
+  title: string;
+  visibility: ArticleVisibility;
+  chunk_id: string | null;
+  snippet: string;
+}
+
+export interface TicketClassification {
+  category: TicketCategory;
+  urgency: TicketPriority;
+  sentiment: 'positive' | 'neutral' | 'negative';
+  billing_lookup_required: boolean;
+  suggested_team: string;
+  reasoning_summary: string;
+}
+
+export interface AiSummaryResult {
+  summary: string;
+}
+
+export interface AiSuggestedReplyResult {
+  reply: string;
+}
+
+export interface AiAuditLog {
+  id: string;
+  user_id: string | null;
+  ticket_id: string | null;
+  customer_id: string | null;
+  action_type: string;
+  input_summary: string;
+  output: unknown;
+  tools_called: string[];
+  risk_flags: string[];
+  approved: boolean;
+  created_at: string;
+}
+
+export type InvoiceStatus = 'draft' | 'open' | 'paid' | 'void' | 'uncollectible';
+
+export type PaymentStatus = 'pending' | 'succeeded' | 'failed' | 'refunded';
+
+export interface Invoice {
+  id: string;
+  customer_id: string;
+  stripe_invoice_id: string | null;
+  amount_due: string;
+  amount_paid: string;
+  currency: string;
+  status: InvoiceStatus;
+  description: string | null;
+  due_date: string | null;
+  created_at: string;
+}
+
+export interface Payment {
+  id: string;
+  customer_id: string;
+  invoice_id: string | null;
+  stripe_payment_intent_id: string | null;
+  amount: string;
+  currency: string;
+  status: PaymentStatus;
+  failure_reason: string | null;
+  created_at: string;
+}
+
+export interface CustomerBillingSummary {
+  customer_id: string;
+  plan_name: string | null;
+  outstanding_balance: string;
+  latest_invoice: Invoice | null;
+  latest_payment: Payment | null;
+  invoices: Invoice[];
+  payments: Payment[];
+}
+
+export interface CheckoutSessionResponse {
+  id: string;
+  url: string;
+}
+
+export interface WebhookEvent {
+  id: string;
+  provider: string;
+  event_id: string;
+  event_type: string;
+  processed: boolean;
+  created_at: string;
 }
 
 export interface DashboardSummary {

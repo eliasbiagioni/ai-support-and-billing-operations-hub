@@ -15,7 +15,7 @@ export interface TicketListFilters {
   status?: string;
   category?: string;
   priority?: string;
-  customer_id?: number;
+  customer_id?: string;
   q?: string;
   limit?: number;
   offset?: number;
@@ -24,7 +24,7 @@ export interface TicketListFilters {
 const ticketKeys = {
   all: ['tickets'] as const,
   list: (filters: TicketListFilters) => ['tickets', 'list', filters] as const,
-  detail: (id: number) => ['tickets', 'detail', id] as const,
+  detail: (id: string) => ['tickets', 'detail', id] as const,
 };
 
 export function useTickets(filters: TicketListFilters) {
@@ -38,12 +38,12 @@ export function useTickets(filters: TicketListFilters) {
   });
 }
 
-export function useTicket(ticketId: number) {
+export function useTicket(ticketId: string) {
   return useQuery({
     queryKey: ticketKeys.detail(ticketId),
     queryFn: ({ signal }) =>
       apiRequest<TicketDetail>(`/api/tickets/${ticketId}`, { signal }),
-    enabled: Number.isFinite(ticketId),
+    enabled: ticketId !== '',
   });
 }
 
@@ -58,7 +58,7 @@ export function useCreateTicket() {
   });
 }
 
-export function useUpdateTicket(ticketId: number) {
+export function useUpdateTicket(ticketId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: TicketUpdate) =>
@@ -72,7 +72,7 @@ export function useUpdateTicket(ticketId: number) {
   });
 }
 
-export function useResolveTicket(ticketId: number) {
+export function useResolveTicket(ticketId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () =>
@@ -83,7 +83,7 @@ export function useResolveTicket(ticketId: number) {
   });
 }
 
-export function useAddTicketMessage(ticketId: number) {
+export function useAddTicketMessage(ticketId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: TicketMessageCreate) =>

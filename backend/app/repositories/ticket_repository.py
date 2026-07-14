@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -13,10 +15,10 @@ class TicketRepository:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def get(self, ticket_id: int) -> Ticket | None:
+    def get(self, ticket_id: uuid.UUID) -> Ticket | None:
         return self.db.get(Ticket, ticket_id)
 
-    def get_with_detail(self, ticket_id: int) -> Ticket | None:
+    def get_with_detail(self, ticket_id: uuid.UUID) -> Ticket | None:
         stmt = (
             select(Ticket)
             .where(Ticket.id == ticket_id)
@@ -32,7 +34,7 @@ class TicketRepository:
         status: TicketStatus | None = None,
         category: TicketCategory | None = None,
         priority: TicketPriority | None = None,
-        customer_id: int | None = None,
+        customer_id: uuid.UUID | None = None,
         search: str | None = None,
     ) -> tuple[list[Ticket], int]:
         filters = []

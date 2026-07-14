@@ -1,4 +1,4 @@
-"""Billing plan model. Maps local plans to Stripe price IDs (used in later phases)."""
+"""Billing plan model. Maps local plans to Stripe price IDs."""
 
 from __future__ import annotations
 
@@ -7,14 +7,13 @@ from decimal import Decimal
 from sqlalchemy import Boolean, Enum, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, TimestampMixin
+from app.db.base import Base, BaseModelMixin
 from app.models.enums import BillingInterval
 
 
-class Plan(TimestampMixin, Base):
+class Plan(BaseModelMixin, Base):
     __tablename__ = "plans"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     # Numeric (not float) for money, per PRD 9.1.
     price_amount: Mapped[Decimal] = mapped_column(

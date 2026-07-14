@@ -13,17 +13,32 @@ from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
 from app.db.session import SessionLocal, engine
-from app.models import Base, Customer, Plan, Ticket, TicketMessage, User
+from app.models import (
+    Base,
+    Customer,
+    Invoice,
+    KnowledgeArticle,
+    KnowledgeChunk,
+    Payment,
+    Plan,
+    Ticket,
+    TicketMessage,
+    User,
+)
 from app.models.enums import (
+    ArticleVisibility,
     BillingInterval,
     CustomerStatus,
+    InvoiceStatus,
     MessageAuthorType,
     MessageVisibility,
+    PaymentStatus,
     TicketCategory,
     TicketPriority,
     TicketStatus,
     UserRole,
 )
+from app.services.knowledge_service import _split_content
 
 logger = get_logger(__name__)
 
@@ -180,6 +195,161 @@ def _seed_tickets(db: Session, customers: list[Customer], agents: list[User]) ->
             )
 
 
+_ARTICLE_BLUEPRINTS: list[tuple[str, str, str, ArticleVisibility]] = [
+    (
+        "Refund policy",
+        "We offer prorated refunds within 14 days of a charge.\n\n"
+        "Refunds are issued to the original payment method and take 5-10 business "
+        "days to appear. Annual plans cancelled mid-term are refunded for the unused "
+        "months. Contact billing to start a refund.",
+        "refund,billing,policy",
+        ArticleVisibility.public,
+    ),
+    (
+        "Fixing a failed payment",
+        "A payment can fail due to an expired card, insufficient funds, or a bank "
+        "block.\n\nAsk the customer to update their card in the billing portal, then "
+        "retry the invoice. If it still fails, the bank must authorize the charge. "
+        "Accounts are suspended after three consecutive failures.",
+        "billing,payment,dunning",
+        ArticleVisibility.internal,
+    ),
+    (
+        "Cancelling a subscription",
+        "Customers can cancel any time from Settings > Billing.\n\n"
+        "Cancellation stops future renewals; access continues until the end of the "
+        "current period. Reactivation restores the previous plan. Enterprise "
+        "contracts require written notice per the agreement.",
+        "cancellation,billing,subscription",
+        ArticleVisibility.public,
+    ),
+    (
+        "Invoice FAQ",
+        "Invoices are generated at the start of each billing cycle.\n\n"
+        "They can be downloaded as PDF from the billing portal. VAT/tax IDs can be "
+        "added before the next cycle. Historical invoices remain available for seven "
+        "years for compliance.",
+        "invoice,billing,faq",
+        ArticleVisibility.public,
+    ),
+    (
+        "Security and data handling",
+        "Data is encrypted in transit (TLS) and at rest (AES-256).\n\n"
+        "We follow least-privilege access and log administrative actions. Report "
+        "suspected incidents to security immediately. Customer data is never used to "
+        "train third-party models.",
+        "security,compliance,data",
+        ArticleVisibility.internal,
+    ),
+    (
+        "Understanding plan limits",
+        "Each plan includes a set number of seats and monthly action quota.\n\n"
+        "Starter includes 5 seats, Pro includes 25, and Enterprise is custom. "
+        "Overages prompt an upgrade suggestion rather than a hard block. Limits reset "
+        "on the billing anniversary.",
+        "plans,limits,billing",
+        ArticleVisibility.public,
+    ),
+    (
+        "Onboarding a new workspace",
+        "New workspaces start with a guided setup checklist.\n\n"
+        "Invite teammates, connect your data sources, and configure ticket routing. "
+        "The onboarding wizard can be re-run from Settings. Most teams are fully set "
+        "up within a day.",
+        "onboarding,account,setup",
+        ArticleVisibility.internal,
+    ),
+    (
+        "Support SLA targets",
+        "First response targets: urgent 1 hour, high 4 hours, medium 1 business day.\n\n"
+        "Resolution times vary by complexity. SLAs apply during business hours unless "
+        "an enterprise 24/7 add-on is active. Breaches are escalated to a team lead.",
+        "sla,support,policy",
+        ArticleVisibility.internal,
+    ),
+]
+
+
+def _seed_knowledge(db: Session, author: User) -> int:
+    for title, content, tags, visibility in _ARTICLE_BLUEPRINTS:
+        article = KnowledgeArticle(
+            title=title,
+            content=content,
+            tags=tags,
+            visibility=visibility,
+            active=True,
+            created_by=author.id,
+        )
+        db.add(article)
+        db.flush()
+        for index, text in enumerate(_split_content(content)):
+            db.add(
+                KnowledgeChunk(
+                    article_id=article.id,
+                    chunk_index=index,
+                    content=text,
+                    token_count=max(1, len(text) // 4),
+                )
+            )
+    return len(_ARTICLE_BLUEPRINTS)
+
+
+def _seed_billing(db: Session, customers: list[Customer]) -> tuple[int, int]:
+    invoices = 0
+    payments = 0
+    # A paid invoice with a successful payment.
+    northwind = customers[0]
+    paid_invoice = Invoice(
+        customer_id=northwind.id,
+        amount_due=Decimal("99.00"),
+        amount_paid=Decimal("99.00"),
+        currency="usd",
+        status=InvoiceStatus.paid,
+        description="Pro plan - monthly",
+    )
+    db.add(paid_invoice)
+    db.flush()
+    db.add(
+        Payment(
+            customer_id=northwind.id,
+            invoice_id=paid_invoice.id,
+            amount=Decimal("99.00"),
+            currency="usd",
+            status=PaymentStatus.succeeded,
+        )
+    )
+    invoices += 1
+    payments += 1
+
+    # An open (unpaid) invoice for an overdue customer.
+    fabrikam = customers[2]
+    db.add(
+        Invoice(
+            customer_id=fabrikam.id,
+            amount_due=Decimal("99.00"),
+            amount_paid=Decimal("0.00"),
+            currency="usd",
+            status=InvoiceStatus.open,
+            description="Pro plan - monthly (overdue)",
+        )
+    )
+    invoices += 1
+
+    # A failed payment for a suspended customer.
+    contoso = customers[1]
+    db.add(
+        Payment(
+            customer_id=contoso.id,
+            amount=Decimal("29.00"),
+            currency="usd",
+            status=PaymentStatus.failed,
+            failure_reason="Your card was declined.",
+        )
+    )
+    payments += 1
+    return invoices, payments
+
+
 def seed() -> None:
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:
@@ -192,13 +362,19 @@ def seed() -> None:
         plans = _seed_plans(db)
         customers = _seed_customers(db, plans)
         _seed_tickets(db, customers, agents)
+        article_count = _seed_knowledge(db, agents[0])
+        invoice_count, payment_count = _seed_billing(db, customers)
         db.commit()
         logger.info(
-            "Seed complete: %d users, %d plans, %d customers, %d tickets.",
+            "Seed complete: %d users, %d plans, %d customers, %d tickets, "
+            "%d articles, %d invoices, %d payments.",
             len(agents),
             len(plans),
             len(customers),
             len(_TICKET_BLUEPRINTS),
+            article_count,
+            invoice_count,
+            payment_count,
         )
 
 

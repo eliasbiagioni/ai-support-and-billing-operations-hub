@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
@@ -29,7 +31,7 @@ def list_tickets(
     status_filter: TicketStatus | None = Query(default=None, alias="status"),
     category: TicketCategory | None = Query(default=None),
     priority: TicketPriority | None = Query(default=None),
-    customer_id: int | None = Query(default=None),
+    customer_id: uuid.UUID | None = Query(default=None),
     q: str | None = Query(default=None, description="Search in subject"),
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
@@ -63,7 +65,7 @@ def create_ticket(
 
 @router.get("/{ticket_id}", response_model=TicketDetail)
 def get_ticket(
-    ticket_id: int,
+    ticket_id: uuid.UUID,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ) -> TicketDetail:
@@ -73,7 +75,7 @@ def get_ticket(
 
 @router.patch("/{ticket_id}", response_model=TicketDetail)
 def update_ticket(
-    ticket_id: int,
+    ticket_id: uuid.UUID,
     payload: TicketUpdate,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
@@ -88,7 +90,7 @@ def update_ticket(
     status_code=status.HTTP_201_CREATED,
 )
 def add_ticket_message(
-    ticket_id: int,
+    ticket_id: uuid.UUID,
     payload: TicketMessageCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -99,7 +101,7 @@ def add_ticket_message(
 
 @router.post("/{ticket_id}/resolve", response_model=TicketDetail)
 def resolve_ticket(
-    ticket_id: int,
+    ticket_id: uuid.UUID,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ) -> TicketDetail:

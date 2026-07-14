@@ -7,6 +7,7 @@ routes and services already depend on an authenticated principal.
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass
 
 from fastapi import Depends, Query
@@ -16,6 +17,9 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.enums import UserRole
 from app.models.user import User
+
+# Stable id for the synthesized fallback admin when no user is seeded yet.
+MOCK_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 
 
 @dataclass(frozen=True)
@@ -38,11 +42,13 @@ def get_current_user(db: Session = Depends(get_db)) -> User:
     (e.g. an empty test DB), synthesize a transient admin so endpoints stay usable.
     """
 
-    user = db.scalars(select(User).where(User.active.is_(True)).order_by(User.id)).first()
+    user = db.scalars(
+        select(User).where(User.active.is_(True)).order_by(User.created_at)
+    ).first()
     if user is not None:
         return user
     return User(
-        id=0,
+        id=MOCK_USER_ID,
         name="Mock Admin",
         email="admin@supportledger.local",
         role=UserRole.admin,

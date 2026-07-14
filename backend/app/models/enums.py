@@ -59,3 +59,23 @@ class MessageVisibility(StrEnum):
 class BillingInterval(StrEnum):
     month = "month"
     year = "year"
+
+
+class ArticleVisibility(StrEnum):
+    internal = "internal"
+    public = "public"
+
+
+class InvoiceStatus(StrEnum):
+    draft = "draft"
+    open = "open"
+    paid = "paid"
+    void = "void"
+    uncollectible = "uncollectible"
+
+
+class PaymentStatus(StrEnum):
+    pending = "pending"
+    succeeded = "succeeded"
+    failed = "failed"
+    refunded = "refunded"

@@ -27,12 +27,12 @@ services:
       BACKEND_CORS_ORIGINS: http://localhost:5173
       FRONTEND_URL: http://localhost:5173
       # External integrations (unused in Phase 0-1; wired for later phases).
-      STRIPE_SECRET_KEY: ""
-      STRIPE_WEBHOOK_SECRET: ""
-      STRIPE_PRICE_ID_PRO: ""
-      LLM_PROVIDER: openai
-      OPENAI_API_KEY: ""
-      AI_MODEL: gpt-4o-mini
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      STRIPE_PRICE_ID_PRO: ${STRIPE_PRICE_ID_PRO}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      AI_MODEL: ${AI_MODEL:-gpt-4o-mini}
     ports:
       - "8000:8000"
 

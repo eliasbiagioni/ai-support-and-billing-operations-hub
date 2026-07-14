@@ -31,7 +31,7 @@ import {
 import type { TicketCategory, TicketCreate, TicketPriority } from '@/types/api';
 
 const emptyForm: TicketCreate = {
-  customer_id: 0,
+  customer_id: '',
   subject: '',
   description: '',
   category: 'other',
@@ -74,7 +74,7 @@ export function TicketsPage() {
   }
 
   const canSubmit =
-    form.customer_id > 0 && form.subject.trim() !== '' && form.description.trim() !== '';
+    form.customer_id !== '' && form.subject.trim() !== '' && form.description.trim() !== '';
 
   return (
     <div>
@@ -189,9 +189,9 @@ export function TicketsPage() {
           <Field label="Customer">
             <Select
               className="w-full"
-              value={form.customer_id || ''}
+              value={form.customer_id}
               onChange={(event) =>
-                setForm({ ...form, customer_id: Number(event.target.value) })
+                setForm({ ...form, customer_id: event.target.value })
               }
             >
               <option value="">Select a customer…</option>

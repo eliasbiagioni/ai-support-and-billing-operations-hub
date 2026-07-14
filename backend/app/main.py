@@ -20,13 +20,17 @@ def create_app() -> FastAPI:
         version=__version__,
         description=(
             "AI Support & Billing Operations Hub - FastAPI backend. "
-            "Phase 0-1: foundation and core support MVP."
+            "Phases 0-4: support MVP, knowledge base, AI Assist, and Stripe billing."
         ),
         openapi_tags=[
             {"name": "health", "description": "Service health checks."},
             {"name": "customers", "description": "Customer management."},
             {"name": "tickets", "description": "Support ticket workflows."},
             {"name": "dashboard", "description": "Operational summary metrics."},
+            {"name": "knowledge", "description": "Knowledge base articles and search."},
+            {"name": "ai", "description": "AI Assist: classify, summarize, suggest replies."},
+            {"name": "billing", "description": "Stripe billing: invoices, payments, checkout."},
+            {"name": "webhooks", "description": "Provider webhooks (Stripe)."},
         ],
     )
 

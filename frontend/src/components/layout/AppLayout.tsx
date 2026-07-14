@@ -4,6 +4,9 @@ const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: 'grid' },
   { to: '/tickets', label: 'Tickets', icon: 'ticket' },
   { to: '/customers', label: 'Customers', icon: 'users' },
+  { to: '/knowledge', label: 'Knowledge base', icon: 'book' },
+  { to: '/billing', label: 'Billing', icon: 'card' },
+  { to: '/ai-audit', label: 'AI audit', icon: 'sparkle' },
 ];
 
 function NavIcon({ name }: { name: string }) {
@@ -13,6 +16,9 @@ function NavIcon({ name }: { name: string }) {
       'M4 7a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 000 4v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2a2 2 0 000-4V7z',
     users:
       'M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4z',
+    book: 'M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V2H6.5A2.5 2.5 0 004 4.5v15z',
+    sparkle: 'M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3z',
+    card: 'M3 10h18M5 6h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z',
   };
   return (
     <svg
@@ -61,7 +67,7 @@ export function AppLayout() {
           ))}
         </nav>
         <div className="mt-auto rounded-lg bg-slate-50 p-3 text-xs text-slate-400">
-          Phase 0-1 MVP. Auth is mocked; AI &amp; Stripe arrive in later phases.
+          Phases 0-4. Auth is mocked; AI &amp; Stripe require real API keys.
         </div>
       </aside>
 

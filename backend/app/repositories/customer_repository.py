@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -12,7 +14,7 @@ class CustomerRepository:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def get(self, customer_id: int) -> Customer | None:
+    def get(self, customer_id: uuid.UUID) -> Customer | None:
         return self.db.get(Customer, customer_id)
 
     def list(self, *, limit: int, offset: int) -> tuple[list[Customer], int]:

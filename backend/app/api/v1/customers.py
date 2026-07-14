@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
@@ -48,7 +50,7 @@ def create_customer(
 
 @router.get("/{customer_id}", response_model=CustomerRead)
 def get_customer(
-    customer_id: int,
+    customer_id: uuid.UUID,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ) -> CustomerRead:
@@ -58,7 +60,7 @@ def get_customer(
 
 @router.patch("/{customer_id}", response_model=CustomerRead)
 def update_customer(
-    customer_id: int,
+    customer_id: uuid.UUID,
     payload: CustomerUpdate,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),

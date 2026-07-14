@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import uuid
+
 from fastapi.testclient import TestClient
 
 
-def _create_ticket(client: TestClient, customer_id: int, **overrides: object) -> dict:
+def _create_ticket(client: TestClient, customer_id: str, **overrides: object) -> dict:
     payload = {
         "customer_id": customer_id,
         "subject": "Payment failed",
@@ -31,7 +33,7 @@ def test_create_ticket_unknown_customer(client: TestClient) -> None:
     response = client.post(
         "/api/tickets",
         json={
-            "customer_id": 4242,
+            "customer_id": str(uuid.uuid4()),
             "subject": "Test",
             "description": "Body",
         },
@@ -90,7 +92,7 @@ def test_list_tickets_with_filters(client: TestClient, customer_id: int) -> None
 
 
 def test_get_missing_ticket_returns_404(client: TestClient) -> None:
-    response = client.get("/api/tickets/9999")
+    response = client.get(f"/api/tickets/{uuid.uuid4()}")
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "not_found"
 
